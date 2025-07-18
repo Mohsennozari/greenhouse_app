@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد گلخانه</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='fonts/Vazir.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container-fluid my-4">
+        <h1 class="text-center mb-4">پایش شرایط گلخانه</h1>
+
+        <!-- فرم فیلتر زمانی و تجمیع -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h5 mb-0">فیلتر و تنظیمات</h2>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('index') }}" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">از تاریخ</label>
+                        <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">تا تاریخ</label>
+                        <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">بازه تجمیعی</label>
+                        <select name="aggregation" class="form-control">
+                            <option value="hourly" {% if aggregation == 'hourly' %}selected{% endif %}>ساعتی</option>
+                            <option value="daily" {% if aggregation == 'daily' %}selected{% endif %}>روزانه</option>
+                            <option value="weekly" {% if aggregation == 'weekly' %}selected{% endif %}>هفتگی</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 align-self-end">
+                        <button type="submit" class="btn btn-primary w-100">فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- تحلیل آماری -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h2 class="h5 mb-0">تحلیل آماری</h2>
+            </div>
+            <div class="card-body">
+                {% if stats %}
+                <div class="row g-3">
+                    {% for key, value in stats.items() %}
+                    <div class="col-md-4">
+                        <div class="summary p-3">
+                            <h3 class="h5">{{ {'temperature': 'دما (°C)', 'humidity': 'رطوبت (%)', 'light': 'نور (Lux)'}[key] }}</h3>
+                            <p>میانگین: {{ value.mean|round(2) }}</p>
+                            <p>حداقل: {{ value.min|round(2) }}</p>
+                            <p>حداکثر: {{ value.max|round(2) }}</p>
+                            <p>انحراف معیار: {{ value.std|round(2) }}</p>
+                            <p>تعداد: {{ value.count|round(0) }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="alert alert-warning">داده‌ای برای نمایش وجود ندارد.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- هشدارها -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h2 class="h5 mb-0">هشدارها</h2>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% if alerts.temperature %}
+                    <li class="list-group-item list-group-item-danger">هشدار دما: دما خارج از محدوده مطلوب است!</li>
+                    {% endif %}
+                    {% if alerts.humidity %}
+                    <li class="list-group-item list-group-item-danger">هشدار رطوبت: رطوبت خارج از محدوده مطلوب است!</li>
+                    {% endif %}
+                    {% if alerts.light %}
+                    <li class="list-group-item list-group-item-danger">هشدار نور: شدت نور خارج از محدوده مطلوب است!</li>
+                    {% endif %}
+                    {% if not alerts.temperature and not alerts.humidity and not alerts.light and stats %}
+                    <li class="list-group-item list-group-item-success">همه شرایط در محدوده مطلوب قرار دارند.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- نمودارها -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h2 class="h5 mb-0">نمودارهای پویا</h2>
+            </div>
+            <div class="card-body">
+                {% if charts_available.temperature and charts_available.humidity and charts_available.light and charts_available.combined %}
+                <div class="row g-3">
+                    <div class="col-12">
+                        <h3 class="h5 text-center">دما (°C)</h3>
+                        <iframe src="{{ url_for('static', filename='report/temperature_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                    </div>
+                    <div class="col-12">
+                        <h3 class="h5 text-center">رطوبت (%)</h3>
+                        <iframe src="{{ url_for('static', filename='report/humidity_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                    </div>
+                    <div class="col-12">
+                        <h3 class="h5 text-center">نور (Lux)</h3>
+                        <iframe src="{{ url_for('static', filename='report/light_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                    </div>
+                    <div class="col-12">
+                        <h3 class="h5 text-center">نمودار ترکیبی</h3>
+                        <iframe src="{{ url_for('static', filename='report/combined_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                    </div>
+                </div>
+                {% else %}
+                <p class="alert alert-warning">نمودارها در دسترس نیستند. لطفاً داده‌ها را آپلود کنید.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- آپلود فایل -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h5 mb-0">آپلود فایل CSV</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input type="file" name="file" accept=".csv" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">بارگذاری و تحلیل</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- دانلود گزارش -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h2 class="h5 mb-0">دانلود گزارش</h2>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('download_summary') }}" class="btn btn-primary w-100">دانلود گزارش متنی</a>
+            </div>
+        </div>
+
+        <!-- پیام‌ها -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for msg in messages %}
+                <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="{{ url_for('static', filename='chart.js') }}"></script>
+</body>
+</html>
