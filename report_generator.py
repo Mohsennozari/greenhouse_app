@@ -44,8 +44,9 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
         }).reset_index()
         df['datetime'] = pd.to_datetime(df['datetime'])
     
-    # مشخص کردن ساعات شب (8 شب تا 6 صبح)
+    # مشخص کردن ساعات شب و روز
     df['is_night'] = df['datetime'].dt.hour.between(20, 23) | df['datetime'].dt.hour.between(0, 5)
+    df['is_day'] = ~df['is_night']
     
     metrics = {
         'temperature': {
@@ -71,16 +72,10 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
         }
     }
     
-    # ذخیره اطلاعات گلخانه
-    greenhouse_info = {
-        'name': 'گلخانه خیار',
-        'data_range': f"از {df['datetime'].min().strftime('%Y-%m-%d')} تا {df['datetime'].max().strftime('%Y-%m-%d')}"
-    }
-    
     # گزارش متنی
     with open(os.path.join(static_report_folder, 'summary.txt'), 'w', encoding='utf-8') as f:
-        f.write(f"📊 خلاصه آماری داده‌های {greenhouse_info['name']}:\n")
-        f.write(f"بازه زمانی: {greenhouse_info['data_range']}\n\n")
+        f.write(f"📊 خلاصه آماری داده‌های گلخانه خیار:\n")
+        f.write(f"بازه زمانی: از {df['datetime'].min().strftime('%Y/%m/%d %H:%M')} تا {df['datetime'].max().strftime('%Y/%m/%d %H:%M')}\n\n")
         for col, info in metrics.items():
             stats = df[col].describe().to_dict()
             stats['median'] = df[col].median()
@@ -98,6 +93,28 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
             if col == 'light':
                 night_outliers = df[df['is_night'] & (df[col] > 100)][col].count()
                 f.write(f"تعداد نقاط نور غیرعادی در شب: {night_outliers}\n")
+                day_stats = df[df['is_day']][col].describe().to_dict()
+                day_stats['median'] = df[df['is_day']][col].median()
+                day_stats['range'] = df[df['is_day']][col].max() - df[df['is_day']][col].min() if not df[df['is_day']].empty else 0
+                night_stats = df[df['is_night']][col].describe().to_dict()
+                night_stats['median'] = df[df['is_night']][col].median()
+                night_stats['range'] = df[df['is_night']][col].max() - df[df['is_night']][col].min() if not df[df['is_night']].empty else 0
+                f.write(f"\n--- نور روز (6 صبح تا 8 شب) ---\n")
+                f.write(f"میانگین: {day_stats['mean']:.2f}\n")
+                f.write(f"حداقل: {day_stats['min']:.2f}\n")
+                f.write(f"حداکثر: {day_stats['max']:.2f}\n")
+                f.write(f"میانه: {day_stats['median']:.2f}\n")
+                f.write(f"دامنه: {day_stats['range']:.2f}\n")
+                f.write(f"تعداد رکوردها: {day_stats['count']:.0f}\n")
+                f.write(f"انحراف معیار: {day_stats['std']:.2f}\n")
+                f.write(f"\n--- نور شب (8 شب تا 6 صبح) ---\n")
+                f.write(f"میانگین: {night_stats['mean']:.2f}\n")
+                f.write(f"حداقل: {night_stats['min']:.2f}\n")
+                f.write(f"حداکثر: {night_stats['max']:.2f}\n")
+                f.write(f"میانه: {night_stats['median']:.2f}\n")
+                f.write(f"دامنه: {night_stats['range']:.2f}\n")
+                f.write(f"تعداد رکوردها: {night_stats['count']:.0f}\n")
+                f.write(f"انحراف معیار: {night_stats['std']:.2f}\n")
             if col == 'temperature':
                 if stats['mean'] < THRESHOLDS['temperature']['min']:
                     f.write("توصیه: دمای پایین! سیستم گرمایش را بررسی کنید.\n")
@@ -114,10 +131,20 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
     # نمودارهای جداگانه
     for col, info in metrics.items():
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df['datetime'], y=df[col], mode='lines', name=info['label'], 
-            line=dict(color=info['color'])
-        ))
+        # داده‌های روز
+        day_data = df[df['is_day']]
+        if not day_data.empty:
+            fig.add_trace(go.Scatter(
+                x=day_data['datetime'], y=day_data[col], mode='lines', name=f"{info['label']} (روز)", 
+                line=dict(color=info['color'], width=2)
+            ))
+        # داده‌های شب
+        night_data = df[df['is_night']]
+        if not night_data.empty:
+            fig.add_trace(go.Scatter(
+                x=night_data['datetime'], y=night_data[col], mode='lines', name=f"{info['label']} (شب)", 
+                line=dict(color='#6B7280', width=2)
+            ))
         outliers = df[(df[col] < THRESHOLDS[col]['min']) | (df[col] > THRESHOLDS[col]['max'])]
         if not outliers.empty:
             fig.add_trace(go.Scatter(
@@ -156,12 +183,19 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
             title=f'تغییرات {info["label"]} در زمان ({aggregation})',
             xaxis_title='زمان',
             yaxis_title=info['label'],
-            yaxis=dict(range=info['range'], dtick=info['tick']),
+            yaxis=dict(range=info['range'], dtick=info['tick'], gridcolor='#dee2e6', gridwidth=2),
+            xaxis=dict(
+                tickformat='%Y/%m/%d %H:%M', 
+                tickangle=45, 
+                tickfont=dict(size=14), 
+                gridcolor='#dee2e6', 
+                gridwidth=2
+            ),
             template='plotly_white',
-            font=dict(family="Vazir, sans-serif", size=12),
+            font=dict(family="Vazir, sans-serif", size=16, color='#333'),
             hovermode='x unified',
             showlegend=True,
-            xaxis=dict(rangeslider=dict(visible=True), type='date')
+            xaxis_rangeslider_visible=True
         )
         fig.write_html(os.path.join(static_report_folder, f'{col}_plot_{aggregation}.html'))
     
@@ -177,15 +211,32 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
     fig_combined = go.Figure()
     for i, col in enumerate(selected_metrics):
         info = metrics[col]
-        fig_combined.add_trace(go.Scatter(
-            x=df['datetime'], y=df[col], mode='lines', name=info['label'], 
-            line=dict(color=info['color']), yaxis=f'y{i+1}'
-        ))
+        day_data = df[df['is_day']]
+        if not day_data.empty:
+            fig_combined.add_trace(go.Scatter(
+                x=day_data['datetime'], y=day_data[col], mode='lines', name=f"{info['label']} (روز)", 
+                line=dict(color=info['color'], width=2), yaxis=f'y{i+1}'
+            ))
+        night_data = df[df['is_night']]
+        if not night_data.empty:
+            fig_combined.add_trace(go.Scatter(
+                x=night_data['datetime'], y=night_data[col], mode='lines', name=f"{info['label']} (شب)", 
+                line=dict(color='#6B7280', width=2), yaxis=f'y{i+1}'
+            ))
     layout = {
         'title': f'نمودار ترکیبی {", ".join([metrics[col]["label"] for col in selected_metrics])} ({aggregation})',
-        'xaxis': dict(title='زمان', rangeslider=dict(visible=True), type='date'),
+        'xaxis': dict(
+            title='زمان', 
+            tickformat='%Y/%m/%d %H:%M', 
+            tickangle=45, 
+            tickfont=dict(size=14), 
+            gridcolor='#dee2e6', 
+            gridwidth=2,
+            rangeslider=dict(visible=True), 
+            type='date'
+        ),
         'template': 'plotly_white',
-        'font': dict(family="Vazir, sans-serif", size=12),
+        'font': dict(family="Vazir, sans-serif", size=16, color='#333'),
         'hovermode': 'x unified',
         'showlegend': True
     }
@@ -198,7 +249,9 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
             position=0.0 if i == 0 else 0.33 * i,
             overlaying="y" if i > 0 else None,
             range=metrics[col]['range'],
-            dtick=metrics[col]['tick']
+            dtick=metrics[col]['tick'],
+            gridcolor='#dee2e6',
+            gridwidth=2
         )
     layout.update(yaxes)
     fig_combined.update_layout(**layout)

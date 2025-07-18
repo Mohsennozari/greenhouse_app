@@ -21,6 +21,17 @@ def check_thresholds(df):
             alerts['light'] = True
     return alerts
 
+def analyze_sensor_issues(df):
+    sensor_issues = {
+        'light_night_anomalies': 0,
+        'light_outliers': 0
+    }
+    if not df.empty:
+        night_hours = df['datetime'].dt.hour.between(20, 23) | df['datetime'].dt.hour.between(0, 5)
+        sensor_issues['light_night_anomalies'] = df[night_hours & (df['light'] > 100)]['light'].count()
+        sensor_issues['light_outliers'] = df[(df['light'] < THRESHOLDS['light']['min']) | (df['light'] > THRESHOLDS['light']['max'])]['light'].count()
+    return sensor_issues
+
 @app.route('/')
 def index():
     page = int(request.args.get('page', 1))
@@ -36,6 +47,8 @@ def index():
     table_data = None
     stats = None
     alerts = {'temperature': False, 'humidity': False, 'light': False}
+    sensor_issues = {'light_night_anomalies': 0, 'light_outliers': 0}
+    latest_data = None
     total_pages = 1
     greenhouse_info = {'name': 'گلخانه خیار', 'data_range': 'نامشخص'}
     
@@ -49,7 +62,7 @@ def index():
     table_rows = []
     if os.path.exists(data_path):
         try:
-            df = pd.read_csv(data_path, parse_dates=['datetime'])
+            df = pd.read_csv(data_path, parse_dates=['datetime']).tail(1000)
             if date_format == 'jalali':
                 df['datetime'] = df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M:%S'))
             greenhouse_info['data_range'] = f"از {df['datetime'].min()} تا {df['datetime'].max()}"
@@ -67,6 +80,10 @@ def index():
                     flash(f'خطا در فیلتر زمانی: {str(e)}')
             else:
                 generate_report(data_path=filtered_data_path, aggregation=aggregation, combination=combination)
+            
+            # تحلیل نور روز و شب
+            day_hours = df['datetime'].dt.hour.between(6, 19)
+            night_hours = df['datetime'].dt.hour.between(20, 23) | df['datetime'].dt.hour.between(0, 5)
             stats = {
                 'temperature': {
                     'mean': df['temperature'].mean(),
@@ -94,6 +111,24 @@ def index():
                     'range': df['light'].max() - df['light'].min(),
                     'count': df['light'].count(),
                     'std': df['light'].std()
+                },
+                'light_day': {
+                    'mean': df[day_hours]['light'].mean() if not df[day_hours].empty else 0,
+                    'min': df[day_hours]['light'].min() if not df[day_hours].empty else 0,
+                    'max': df[day_hours]['light'].max() if not df[day_hours].empty else 0,
+                    'median': df[day_hours]['light'].median() if not df[day_hours].empty else 0,
+                    'range': (df[day_hours]['light'].max() - df[day_hours]['light'].min()) if not df[day_hours].empty else 0,
+                    'count': df[day_hours]['light'].count(),
+                    'std': df[day_hours]['light'].std() if not df[day_hours].empty else 0
+                },
+                'light_night': {
+                    'mean': df[night_hours]['light'].mean() if not df[night_hours].empty else 0,
+                    'min': df[night_hours]['light'].min() if not df[night_hours].empty else 0,
+                    'max': df[night_hours]['light'].max() if not df[night_hours].empty else 0,
+                    'median': df[night_hours]['light'].median() if not df[night_hours].empty else 0,
+                    'range': (df[night_hours]['light'].max() - df[night_hours]['light'].min()) if not df[night_hours].empty else 0,
+                    'count': df[night_hours]['light'].count(),
+                    'std': df[night_hours]['light'].std() if not df[night_hours].empty else 0
                 }
             }
             total_rows = len(df)
@@ -102,6 +137,9 @@ def index():
             table_data = df.iloc[start:end].to_html(classes='table table-striped table-data', index=False, border=0)
             total_pages = (total_rows + per_page - 1) // per_page
             alerts = check_thresholds(df)
+            sensor_issues = analyze_sensor_issues(df)
+            # تبدیل Series به دیکشنری برای داشبورد خلاصه
+            latest_data = df.iloc[-1].to_dict() if not df.empty else None
             
             # آماده‌سازی داده‌ها برای جدول تعاملی
             for _, row in df.iterrows():
@@ -131,7 +169,7 @@ def index():
                            end_date=end_date, aggregation=aggregation, combination=combination,
                            date_format=date_format, greenhouse_info=greenhouse_info,
                            charts_available=charts_available, table_rows=table_rows,
-                           thresholds=THRESHOLDS)
+                           thresholds=THRESHOLDS, sensor_issues=sensor_issues, latest_data=latest_data)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
