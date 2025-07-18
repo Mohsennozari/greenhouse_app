@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- لودینگ -->
     <div id="loading" class="loading-overlay">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">در حال بارگذاری...</span>
@@ -22,14 +21,13 @@
         <p class="mt-2">لطفاً منتظر بمانید...</p>
     </div>
 
-    <div class="container-fluid my-4">
-        <h1 class="text-center mb-4"><i class="fas fa-leaf me-2"></i> پایش شرایط {{ greenhouse_info.name }}</h1>
-        <p class="text-center text-muted">بازه زمانی داده‌ها: {{ greenhouse_info.data_range }}</p>
-
+    <div class="container-fluid my-4 monitoring-dashboard">
+        
         <!-- داشبورد خلاصه -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-dark text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="current-status">
+            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-tachometer-alt me-2"></i> وضعیت فعلی گلخانه</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="current-status"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 {% if latest_data %}
@@ -63,9 +61,10 @@
         </div>
 
         <!-- فرم تنظیم آستانه‌ها -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-primary text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="thresholds">
+            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-cog me-2"></i> تنظیم آستانه‌های استاندارد</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="thresholds"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('update_thresholds') }}" class="row g-3">
@@ -110,9 +109,10 @@
         </div>
 
         <!-- فرم فیلتر زمانی و تجمیع -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-primary text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="filters">
+            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-filter me-2"></i> فیلتر و تنظیمات</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="filters"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 <form method="GET" action="{{ url_for('index') }}" class="row g-3" onsubmit="showLoading()">
@@ -156,13 +156,14 @@
         </div>
 
         <!-- جدول تعاملی -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-info text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="data-table">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-table me-2"></i> جدول داده‌ها</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="data-table"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 {% if table_rows %}
-                <div class="table-responsive" style="max-height: 400px;">
+                <div class="table-responsive">
                     <table id="dataTable" class="table table-striped table-bordered w-100">
                         <thead>
                             <tr>
@@ -201,9 +202,10 @@
         </div>
 
         <!-- تحلیل آماری -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-success text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="stats">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-chart-bar me-2"></i> تحلیل آماری</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="stats"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 {% if stats %}
@@ -211,16 +213,13 @@
                     {% for key, value in stats.items() %}
                     <div class="col-md-4">
                         <div class="summary p-3">
-                            <h3 class="h5">{{ {'temperature': 'دما (°C)', 'humidity': 'رطوبت (%)', 'light': 'نور (Lux)', 'light_day': 'نور روز (Lux)', 'light_night': 'نور شب (Lux)'}[key] }}</h3>
+                            <h3 class="h5">{{ {'temperature': 'دما (°C)', 'humidity': 'رطوبت (%)', 'light': 'نور (Lux)'}[key] }}</h3>
                             <p>میانگین: {{ value.mean|round(2) }}</p>
                             <p>حداقل: {{ value.min|round(2) }}</p>
                             <p>حداکثر: {{ value.max|round(2) }}</p>
                             <p>میانه: {{ value.median|round(2) }}</p>
                             <p>دامنه: {{ value.range|round(2) }}</p>
                             <p>تعداد رکوردها: {{ value.count|int }}</p>
-                            {% if key != 'light_day' and key != 'light_night' %}
-                            <p>بازه زمانی: {{ greenhouse_info.data_range }}</p>
-                            {% endif %}
                             {% if key in thresholds and value.mean|float < thresholds[key].min %}
                             <p class="text-danger">هشدار: میانگین کمتر از حد استاندارد ({{ thresholds[key].min }})</p>
                             {% elif key in thresholds and value.mean|float > thresholds[key].max %}
@@ -239,24 +238,19 @@
         </div>
 
         <!-- تحلیل عملکرد سنسورها -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-warning text-dark">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="sensor-issues">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-exclamation-triangle me-2"></i> تحلیل عملکرد سنسورها</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="sensor-issues"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 {% if sensor_issues %}
                 <ul class="list-group">
-                    {% if sensor_issues.light_night_anomalies %}
+                    {% if sensor_issues.outliers %}
                     <li class="list-group-item list-group-item-danger">
-                        <i class="fas fa-moon me-2"></i> هشدار: {{ sensor_issues.light_night_anomalies }} مورد نور غیرعادی در شب (نور > 100 Lux) شناسایی شد.
+                        <i class="fas fa-exclamation-circle me-2"></i> هشدار: {{ sensor_issues.outliers }} مورد داده نور خارج از محدوده (>{{ thresholds.light.max }} یا <{{ thresholds.light.min }}) شناسایی شد.
                     </li>
-                    {% endif %}
-                    {% if sensor_issues.light_outliers %}
-                    <li class="list-group-item list-group-item-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i> هشدار: {{ sensor_issues.light_outliers }} مورد داده نور خارج از محدوده (>{{ thresholds.light.max }} یا <{{ thresholds.light.min }}) شناسایی شد.
-                    </li>
-                    {% endif %}
-                    {% if not sensor_issues.light_night_anomalies and not sensor_issues.light_outliers %}
+                    {% else %}
                     <li class="list-group-item list-group-item-success">
                         <i class="fas fa-check-circle me-2"></i> هیچ مشکلی در عملکرد سنسورهای نور شناسایی نشد.
                     </li>
@@ -269,34 +263,43 @@
         </div>
 
         <!-- نمودارها -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-warning text-dark">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="charts">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-chart-line me-2"></i> نمودارهای پویا</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="charts"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 <div class="row g-3">
                     {% if charts_available.temperature %}
-                    <div class="col-12">
+                    <div class="col-12 chart-container fullscreen-section" data-section="temperature-chart">
                         <h3 class="h5 text-center">دما (°C)</h3>
                         <iframe src="{{ url_for('static', filename='report/temperature_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
+                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="temperature-chart"><i class="fas fa-expand"></i></button>
                     </div>
                     {% endif %}
                     {% if charts_available.humidity %}
-                    <div class="col-12">
+                    <div class="col-12 chart-container fullscreen-section" data-section="humidity-chart">
                         <h3 class="h5 text-center">رطوبت (%)</h3>
                         <iframe src="{{ url_for('static', filename='report/humidity_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
+                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="humidity-chart"><i class="fas fa-expand"></i></button>
                     </div>
                     {% endif %}
                     {% if charts_available.light %}
-                    <div class="col-12">
+                    <div class="col-12 chart-container fullscreen-section" data-section="light-chart">
                         <h3 class="h5 text-center">نور (Lux)</h3>
                         <iframe src="{{ url_for('static', filename='report/light_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
+                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="light-chart"><i class="fas fa-expand"></i></button>
                     </div>
                     {% endif %}
                     {% if charts_available.combined %}
-                    <div class="col-12">
+                    <div class="col-12 chart-container fullscreen-section" data-section="combined-chart">
                         <h3 class="h5 text-center">نمودار ترکیبی</h3>
                         <iframe src="{{ url_for('static', filename='report/combined_plot_' + combination + '_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
+                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="combined-chart"><i class="fas fa-expand"></i></button>
                     </div>
                     {% endif %}
                     {% if not (charts_available.temperature or charts_available.humidity or charts_available.light or charts_available.combined) %}
@@ -307,9 +310,10 @@
         </div>
 
         <!-- آپلود فایل -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-primary text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="upload">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-upload me-2"></i> آپلود فایل CSV</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="upload"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" onsubmit="showLoading()">
@@ -322,9 +326,10 @@
         </div>
 
         <!-- دانلود گزارش -->
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-secondary text-white">
+        <div class="card mb-4 shadow-sm fullscreen-section" data-section="download">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0"><i class="fas fa-download me-2"></i> دانلود گزارش</h2>
+                <button class="btn btn-sm btn-light fullscreen-btn" data-section="download"><i class="fas fa-expand"></i></button>
             </div>
             <div class="card-body">
                 <a href="{{ url_for('download_summary') }}" class="btn btn-primary w-100">دانلود گزارش متنی</a>
@@ -344,62 +349,12 @@
         {% endif %}
         {% endwith %}
     </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script src="{{ url_for('static', filename='chart.js') }}"></script>
-    <script>
-        // نمایش لودینگ
-        function showLoading() {
-            document.getElementById('loading').style.display = 'flex';
-            let width = 0;
-            const progressBar = document.getElementById('progress-bar');
-            const interval = setInterval(() => {
-                width += 100 / (3 * 20); // 3 ثانیه (60 فریم در 3 ثانیه)
-                progressBar.style.width = width + '%';
-                progressBar.setAttribute('aria-valuenow', width);
-                if (width >= 100) {
-                    clearInterval(interval);
-                }
-            }, 50);
-        }
-
-        $(document).ready(function() {
-            // مخفی کردن لودینگ بعد از 3 ثانیه
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 3000);
-
-            $('#dataTable').DataTable({
-                language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/fa.json'
-                },
-                pageLength: 10,
-                order: [[0, 'desc']],
-                scrollY: '400px',
-                scrollX: true,
-                scrollCollapse: true,
-                fixedHeader: true,
-                searching: false,
-                columnDefs: [
-                    { targets: '_all', className: 'dt-center' },
-                    { width: '20%', targets: 0 },
-                    { width: '20%', targets: 1 },
-                    { width: '20%', targets: 2 },
-                    { width: '20%', targets: 3 },
-                    { width: '20%', targets: 4 }
-                ],
-                responsive: true
-            });
-
-            // رفرش خودکار صفحه هر 5 دقیقه
-            setTimeout(function() {
-                showLoading();
-                window.location.reload();
-            }, 300000);
-        });
-    </script>
 </body>
 </html>
