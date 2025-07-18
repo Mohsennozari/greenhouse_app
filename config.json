@@ -1,0 +1,14 @@
+{
+    "temperature": {
+        "min": 15,
+        "max": 30
+    },
+    "humidity": {
+        "min": 60,
+        "max": 90
+    },
+    "light": {
+        "min": 1000,
+        "max": 20000
+    }
+}

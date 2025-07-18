@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 import pandas as pd
 import os
-from config import DATA_FOLDER, THRESHOLDS
+import jdatetime
+from config import DATA_FOLDER, THRESHOLDS, save_thresholds
 from report_generator import generate_report
 from preprocess import preprocess_data
 
@@ -27,50 +28,110 @@ def index():
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     aggregation = request.args.get('aggregation', 'hourly')
+    combination = request.args.get('combination', 'all')
+    date_format = request.args.get('date_format', 'gregorian')
+    
     data_path = os.path.join(DATA_FOLDER, 'greenhouse_clean.csv')
     
     table_data = None
     stats = None
     alerts = {'temperature': False, 'humidity': False, 'light': False}
     total_pages = 1
+    greenhouse_info = {'name': 'گلخانه خیار', 'data_range': 'نامشخص'}
+    
     charts_available = {
         'temperature': os.path.exists(os.path.join(app.static_folder, 'report', f'temperature_plot_{aggregation}.html')),
         'humidity': os.path.exists(os.path.join(app.static_folder, 'report', f'humidity_plot_{aggregation}.html')),
         'light': os.path.exists(os.path.join(app.static_folder, 'report', f'light_plot_{aggregation}.html')),
-        'combined': os.path.exists(os.path.join(app.static_folder, 'report', f'combined_plot_{aggregation}.html'))
+        'combined': os.path.exists(os.path.join(app.static_folder, 'report', f'combined_plot_{combination}_{aggregation}.html'))
     }
     
+    table_rows = []
     if os.path.exists(data_path):
         try:
             df = pd.read_csv(data_path, parse_dates=['datetime'])
+            if date_format == 'jalali':
+                df['datetime'] = df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M:%S'))
+            greenhouse_info['data_range'] = f"از {df['datetime'].min()} تا {df['datetime'].max()}"
             filtered_data_path = 'greenhouse_clean.csv'
             if start_date and end_date:
                 try:
+                    if date_format == 'jalali':
+                        start_date = jdatetime.datetime.strptime(start_date, '%Y/%m/%d').togregorian().strftime('%Y-%m-%d')
+                        end_date = jdatetime.datetime.strptime(end_date, '%Y/%m/%d').togregorian().strftime('%Y-%m-%d')
                     df = df[(df['datetime'] >= start_date) & (df['datetime'] <= end_date)]
                     filtered_data_path = 'filtered_data.csv'
                     df.to_csv(os.path.join(DATA_FOLDER, filtered_data_path), index=False)
-                    generate_report(data_path=filtered_data_path, aggregation=aggregation)
+                    generate_report(data_path=filtered_data_path, aggregation=aggregation, combination=combination)
                 except Exception as e:
                     flash(f'خطا در فیلتر زمانی: {str(e)}')
             else:
-                generate_report(data_path=filtered_data_path, aggregation=aggregation)
+                generate_report(data_path=filtered_data_path, aggregation=aggregation, combination=combination)
             stats = {
-                'temperature': df['temperature'].describe().to_dict(),
-                'humidity': df['humidity'].describe().to_dict(),
-                'light': df['light'].describe().to_dict()
+                'temperature': {
+                    'mean': df['temperature'].mean(),
+                    'min': df['temperature'].min(),
+                    'max': df['temperature'].max(),
+                    'median': df['temperature'].median(),
+                    'range': df['temperature'].max() - df['temperature'].min(),
+                    'count': df['temperature'].count(),
+                    'std': df['temperature'].std()
+                },
+                'humidity': {
+                    'mean': df['humidity'].mean(),
+                    'min': df['humidity'].min(),
+                    'max': df['humidity'].max(),
+                    'median': df['humidity'].median(),
+                    'range': df['humidity'].max() - df['humidity'].min(),
+                    'count': df['humidity'].count(),
+                    'std': df['humidity'].std()
+                },
+                'light': {
+                    'mean': df['light'].mean(),
+                    'min': df['light'].min(),
+                    'max': df['light'].max(),
+                    'median': df['light'].median(),
+                    'range': df['light'].max() - df['light'].min(),
+                    'count': df['light'].count(),
+                    'std': df['light'].std()
+                }
             }
             total_rows = len(df)
             start = (page - 1) * per_page
             end = min(start + per_page, total_rows)
-            table_data = df.iloc[start:end].to_html(classes='table table-striped', index=False, border=0)
+            table_data = df.iloc[start:end].to_html(classes='table table-striped table-data', index=False, border=0)
             total_pages = (total_rows + per_page - 1) // per_page
             alerts = check_thresholds(df)
+            
+            # آماده‌سازی داده‌ها برای جدول تعاملی
+            for _, row in df.iterrows():
+                status = {}
+                for col in ['temperature', 'humidity', 'light']:
+                    val = row[col]
+                    min_val = THRESHOLDS[col]['min']
+                    max_val = THRESHOLDS[col]['max']
+                    if val < min_val or val > max_val:
+                        status[col] = 'danger'
+                    elif min_val * 1.1 > val or max_val * 0.9 < val:
+                        status[col] = 'warning'
+                    else:
+                        status[col] = 'success'
+                table_rows.append({
+                    'datetime': row['datetime'],
+                    'temperature': row['temperature'],
+                    'humidity': row['humidity'],
+                    'light': row['light'],
+                    'status': status
+                })
         except Exception as e:
             flash(f'خطا در خواندن داده‌ها: {str(e)}')
     
     return render_template('index.html', table_data=table_data, stats=stats, alerts=alerts, 
                            page=page, total_pages=total_pages, start_date=start_date, 
-                           end_date=end_date, aggregation=aggregation, charts_available=charts_available)
+                           end_date=end_date, aggregation=aggregation, combination=combination,
+                           date_format=date_format, greenhouse_info=greenhouse_info,
+                           charts_available=charts_available, table_rows=table_rows,
+                           thresholds=THRESHOLDS)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -85,15 +146,44 @@ def upload_file():
     
     if file and file.filename.endswith('.csv'):
         filepath = os.path.join(DATA_FOLDER, 'greenhouse_raw.csv')
-        file.save(filepath)
-        if preprocess_data():
-            generate_report(aggregation='hourly')
-            flash('فایل با موفقیت آپلود و پردازش شد.')
-        else:
-            flash('خطا در پردازش فایل.')
+        try:
+            file.save(filepath)
+            if preprocess_data():
+                generate_report(aggregation='hourly', combination='all')
+                flash('فایل با موفقیت آپلود و پردازش شد.')
+            else:
+                flash('خطا در پردازش فایل.')
+        except Exception as e:
+            flash(f'خطا در ذخیره فایل: {str(e)}')
         return redirect(url_for('index'))
     else:
         flash('لطفاً فقط فایل CSV انتخاب کنید.')
+        return redirect(url_for('index'))
+
+@app.route('/update_thresholds', methods=['POST'])
+def update_thresholds():
+    try:
+        thresholds = {
+            'temperature': {
+                'min': float(request.form.get('temp_min', THRESHOLDS['temperature']['min'])),
+                'max': float(request.form.get('temp_max', THRESHOLDS['temperature']['max']))
+            },
+            'humidity': {
+                'min': float(request.form.get('hum_min', THRESHOLDS['humidity']['min'])),
+                'max': float(request.form.get('hum_max', THRESHOLDS['humidity']['max']))
+            },
+            'light': {
+                'min': float(request.form.get('light_min', THRESHOLDS['light']['min'])),
+                'max': float(request.form.get('light_max', THRESHOLDS['light']['max']))
+            }
+        }
+        if save_thresholds(thresholds):
+            flash('آستانه‌ها با موفقیت به‌روزرسانی شدند.')
+        else:
+            flash('خطا در ذخیره آستانه‌ها.')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'خطا در به‌روزرسانی آستانه‌ها: {str(e)}')
         return redirect(url_for('index'))
 
 @app.route('/download_summary')

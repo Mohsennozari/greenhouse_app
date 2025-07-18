@@ -3,14 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>داشبورد گلخانه</title>
+    <title>داشبورد گلخانه خیار</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='fonts/Vazir.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container-fluid my-4">
-        <h1 class="text-center mb-4">پایش شرایط گلخانه</h1>
+        <h1 class="text-center mb-4">پایش شرایط {{ greenhouse_info.name }}</h1>
+        <p class="text-center text-muted">بازه زمانی داده‌ها: {{ greenhouse_info.data_range }}</p>
+
+        <!-- فرم تنظیم آستانه‌ها -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h5 mb-0">تنظیم آستانه‌های استاندارد</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_thresholds') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <h5>دما (°C)</h5>
+                        <div class="input-group">
+                            <span class="input-group-text">حداقل</span>
+                            <input type="number" name="temp_min" class="form-control" value="{{ thresholds.temperature.min }}" step="0.1">
+                        </div>
+                        <div class="input-group mt-2">
+                            <span class="input-group-text">حداکثر</span>
+                            <input type="number" name="temp_max" class="form-control" value="{{ thresholds.temperature.max }}" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>رطوبت (%)</h5>
+                        <div class="input-group">
+                            <span class="input-group-text">حداقل</span>
+                            <input type="number" name="hum_min" class="form-control" value="{{ thresholds.humidity.min }}" step="0.1">
+                        </div>
+                        <div class="input-group mt-2">
+                            <span class="input-group-text">حداکثر</span>
+                            <input type="number" name="hum_max" class="form-control" value="{{ thresholds.humidity.max }}" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>نور (Lux)</h5>
+                        <div class="input-group">
+                            <span class="input-group-text">حداقل</span>
+                            <input type="number" name="light_min" class="form-control" value="{{ thresholds.light.min }}" step="1">
+                        </div>
+                        <div class="input-group mt-2">
+                            <span class="input-group-text">حداکثر</span>
+                            <input type="number" name="light_max" class="form-control" value="{{ thresholds.light.max }}" step="1">
+                        </div>
+                    </div>
+                    <div class="col-md-12 mt-3">
+                        <button type="submit" class="btn btn-success w-100">ذخیره آستانه‌ها</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- فرم فیلتر زمانی و تجمیع -->
         <div class="card mb-4 shadow-sm">
@@ -21,13 +70,13 @@
                 <form method="GET" action="{{ url_for('index') }}" class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">از تاریخ</label>
-                        <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}">
+                        <input type="text" name="start_date" class="form-control" value="{{ start_date or '' }}" placeholder="{{ 'YYYY/MM/DD' if date_format == 'jalali' else 'YYYY-MM-DD' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">تا تاریخ</label>
-                        <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}">
+                        <input type="text" name="end_date" class="form-control" value="{{ end_date or '' }}" placeholder="{{ 'YYYY/MM/DD' if date_format == 'jalali' else 'YYYY-MM-DD' }}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">بازه تجمیعی</label>
                         <select name="aggregation" class="form-control">
                             <option value="hourly" {% if aggregation == 'hourly' %}selected{% endif %}>ساعتی</option>
@@ -35,10 +84,71 @@
                             <option value="weekly" {% if aggregation == 'weekly' %}selected{% endif %}>هفتگی</option>
                         </select>
                     </div>
-                    <div class="col-md-3 align-self-end">
+                    <div class="col-md-2">
+                        <label class="form-label">نمودار ترکیبی</label>
+                        <select name="combination" class="form-control">
+                            <option value="all" {% if combination == 'all' %}selected{% endif %}>دما، رطوبت، نور</option>
+                            <option value="temp-hum" {% if combination == 'temp-hum' %}selected{% endif %}>دما و رطوبت</option>
+                            <option value="temp-light" {% if combination == 'temp-light' %}selected{% endif %}>دما و نور</option>
+                            <option value="hum-light" {% if combination == 'hum-light' %}selected{% endif %}>رطوبت و نور</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">فرمت تاریخ</label>
+                        <select name="date_format" class="form-control">
+                            <option value="gregorian" {% if date_format == 'gregorian' %}selected{% endif %}>میلادی</option>
+                            <option value="jalali" {% if date_format == 'jalali' %}selected{% endif %}>شمسی</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 align-self-end">
                         <button type="submit" class="btn btn-primary w-100">فیلتر</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- جدول تعاملی -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h2 class="h5 mb-0">جدول داده‌ها</h2>
+            </div>
+            <div class="card-body">
+                {% if table_rows %}
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table id="dataTable" class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>زمان</th>
+                                <th>دما (°C)</th>
+                                <th>رطوبت (%)</th>
+                                <th>نور (Lux)</th>
+                                <th>وضعیت</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in table_rows %}
+                            <tr>
+                                <td>{{ row.datetime }}</td>
+                                <td class="status-{{ row.status.temperature }}">{{ row.temperature|round(2) }}</td>
+                                <td class="status-{{ row.status.humidity }}">{{ row.humidity|round(2) }}</td>
+                                <td class="status-{{ row.status.light }}">{{ row.light|round(2) }}</td>
+                                <td>
+                                    {% if row.status.temperature == 'danger' or row.status.humidity == 'danger' or row.status.light == 'danger' %}
+                                        <span class="badge bg-danger">نیاز به بررسی</span>
+                                    {% elif row.status.temperature == 'warning' or row.status.humidity == 'warning' or row.status.light == 'warning' %}
+                                        <span class="badge bg-warning">هشدار</span>
+                                    {% else %}
+                                        <span class="badge bg-success">نرمال</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="alert alert-warning">داده‌ای برای نمایش وجود ندارد.</p>
+                {% endif %}
             </div>
         </div>
 
@@ -57,8 +167,17 @@
                             <p>میانگین: {{ value.mean|round(2) }}</p>
                             <p>حداقل: {{ value.min|round(2) }}</p>
                             <p>حداکثر: {{ value.max|round(2) }}</p>
-                            <p>انحراف معیار: {{ value.std|round(2) }}</p>
-                            <p>تعداد: {{ value.count|round(0) }}</p>
+                            <p>میانه: {{ value.median|round(2) }}</p>
+                            <p>دامنه: {{ (value.max - value.min)|round(2) }}</.namesp>
+                            <p>تعداد رکوردها: {{ value.count|int }}</p>
+                            <p>بازه زمانی: {{ greenhouse_info.data_range }}</p>
+                            {% if value.mean < thresholds[key].min %}
+                            <p class="text-danger">هشدار: میانگین کمتر از حد استاندارد ({{ thresholds[key].min }})</p>
+                            {% elif value.mean > thresholds[key].max %}
+                            <p class="text-danger">هشدار: میانگین بیشتر از حد استاندارد ({{ thresholds[key].max }})</p>
+                            {% else %}
+                            <p class="text-success">میانگین در محدوده استاندارد</p>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
@@ -120,7 +239,7 @@
                     {% if charts_available.combined %}
                     <div class="col-12">
                         <h3 class="h5 text-center">نمودار ترکیبی</h3>
-                        <iframe src="{{ url_for('static', filename='report/combined_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
+                        <iframe src="{{ url_for('static', filename='report/combined_plot_' + combination + '_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
                     </div>
                     {% endif %}
                     {% if not (charts_available.temperature or charts_available.humidity or charts_available.light or charts_available.combined) %}
@@ -169,7 +288,28 @@
         {% endwith %}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script src="{{ url_for('static', filename='chart.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            $('#dataTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/fa.json'
+                },
+                pageLength: 10,
+                order: [[0, 'desc']],
+                scrollY: '400px',
+                scrollX: true,
+                scrollCollapse: true,
+                fixedHeader: true,
+                columnDefs: [
+                    { targets: '_all', className: 'dt-center' }
+                ]
+            });
+        });
+    </script>
 </body>
 </html>

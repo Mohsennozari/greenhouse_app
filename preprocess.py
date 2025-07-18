@@ -2,35 +2,31 @@ import pandas as pd
 import os
 from config import DATA_FOLDER
 
-def preprocess_data(input_file='data/greenhouse_raw.csv', output_file='data/greenhouse_clean.csv'):
-    input_path = os.path.join(DATA_FOLDER, input_file)
-    output_path = os.path.join(DATA_FOLDER, output_file)
+def preprocess_data():
+    raw_path = os.path.join(DATA_FOLDER, 'greenhouse_raw.csv')
+    clean_path = os.path.join(DATA_FOLDER, 'greenhouse_clean.csv')
     
-    if not os.path.exists(input_path):
-        print(f"خطا: فایل {input_path} پیدا نشد.")
+    if not os.path.exists(raw_path):
+        print(f"خطا: فایل {raw_path} پیدا نشد.")
         return False
     
-    # بررسی ستون‌های مورد نیاز
-    df = pd.read_csv(input_path, nrows=1)
-    required_columns = ['datetime', 'temperature', 'humidity', 'light']
-    if not all(col in df.columns for col in required_columns):
-        print(f"خطا: فایل باید شامل ستون‌های {required_columns} باشد.")
+    try:
+        df = pd.read_csv(raw_path, parse_dates=['datetime'])
+        # حذف مقادیر غیرمنطقی
+        df = df.dropna()
+        df = df[df['temperature'].between(0, 50)]
+        df = df[df['humidity'].between(0, 100)]
+        # فیلتر نور: در ساعات شب (8 شب تا 6 صبح) نور باید نزدیک به صفر باشد
+        df['is_night'] = df['datetime'].dt.hour.between(20, 23) | df['datetime'].dt.hour.between(0, 5)
+        df.loc[df['is_night'] & (df['light'] > 100), 'light'] = 0  # تنظیم نور غیرعادی در شب به صفر
+        df = df[df['light'] >= 100]  # فیلتر نور غیرعادی در روز
+        df = df.drop(columns=['is_night'])
+        df.to_csv(clean_path, index=False)
+        print(f"✅ داده‌های تمیز در {clean_path} ذخیره شد.")
+        return True
+    except Exception as e:
+        print(f"خطا در پیش‌پردازش: {str(e)}")
         return False
-    
-    # پردازش داده‌ها با چانک برای بهینه‌سازی
-    chunks = pd.read_csv(input_path, chunksize=10000, usecols=required_columns)
-    df = pd.concat([chunk for chunk in chunks])
-    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-    df.dropna(subset=['datetime', 'temperature', 'humidity', 'light'], inplace=True)
-    
-    # بررسی مقادیر غیرعادی نور
-    if df['light'].mean() < 100:
-        print("هشدار: مقادیر نور بسیار پایین است، احتمال خطای سنسور.")
-    
-    df = df.sort_values(by='datetime')
-    df.to_csv(output_path, index=False)
-    print(f"✅ فایل تمیز شده ذخیره شد: {output_path}")
-    return True
 
 if __name__ == '__main__':
     preprocess_data()
