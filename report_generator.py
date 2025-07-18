@@ -10,9 +10,14 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly'):
     
     if not os.path.exists(data_path):
         print(f"خطا: فایل {data_path} پیدا نشد.")
-        return
+        return False
     
-    df = pd.read_csv(data_path, parse_dates=['datetime'])
+    try:
+        df = pd.read_csv(data_path, parse_dates=['datetime'])
+    except Exception as e:
+        print(f"خطا در خواندن فایل CSV: {str(e)}")
+        return False
+    
     if len(df) > 10000:
         df = df.sample(n=10000, random_state=42).sort_values(by='datetime')
     
@@ -135,6 +140,7 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly'):
     fig_combined.write_html(os.path.join(static_report_folder, f'combined_plot_{aggregation}.html'))
 
     print(f"✅ گزارش و نمودارها در پوشه {static_report_folder} ذخیره شد.")
+    return True
 
 if __name__ == '__main__':
     generate_report()

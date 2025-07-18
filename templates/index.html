@@ -64,7 +64,7 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="alert alert-warning">داده‌ای برای نمایش وجود ندارد.</p>
+                <p class="alert alert-warning">داده‌ای برای نمایش آمار وجود ندارد.</p>
                 {% endif %}
             </div>
         </div>
@@ -98,28 +98,35 @@
                 <h2 class="h5 mb-0">نمودارهای پویا</h2>
             </div>
             <div class="card-body">
-                {% if charts_available.temperature and charts_available.humidity and charts_available.light and charts_available.combined %}
                 <div class="row g-3">
+                    {% if charts_available.temperature %}
                     <div class="col-12">
                         <h3 class="h5 text-center">دما (°C)</h3>
                         <iframe src="{{ url_for('static', filename='report/temperature_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
                     </div>
+                    {% endif %}
+                    {% if charts_available.humidity %}
                     <div class="col-12">
                         <h3 class="h5 text-center">رطوبت (%)</h3>
                         <iframe src="{{ url_for('static', filename='report/humidity_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
                     </div>
+                    {% endif %}
+                    {% if charts_available.light %}
                     <div class="col-12">
                         <h3 class="h5 text-center">نور (Lux)</h3>
                         <iframe src="{{ url_for('static', filename='report/light_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
                     </div>
+                    {% endif %}
+                    {% if charts_available.combined %}
                     <div class="col-12">
                         <h3 class="h5 text-center">نمودار ترکیبی</h3>
                         <iframe src="{{ url_for('static', filename='report/combined_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
                     </div>
+                    {% endif %}
+                    {% if not (charts_available.temperature or charts_available.humidity or charts_available.light or charts_available.combined) %}
+                    <p class="alert alert-warning">نمودارها در دسترس نیستند. لطفاً داده‌ها را آپلود کنید یا فیلترها را بررسی کنید.</p>
+                    {% endif %}
                 </div>
-                {% else %}
-                <p class="alert alert-warning">نمودارها در دسترس نیستند. لطفاً داده‌ها را آپلود کنید.</p>
-                {% endif %}
             </div>
         </div>
 
