@@ -1,193 +1,346 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>داشبورد گلخانه خیار</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='fonts/Vazir.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>داشبورد گلخانه خیار - 2025</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
 </head>
 <body>
-    <div id="loading" class="loading-overlay">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">در حال بارگذاری...</span>
-        </div>
-        <div class="progress mt-3" style="width: 200px;">
-            <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-        </div>
-        <p class="mt-2">لطفاً منتظر بمانید...</p>
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <p>در حال بارگذاری...</p>
     </div>
 
-    <div class="container-fluid my-4 monitoring-dashboard">
-        
-        <!-- داشبورد خلاصه -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="current-status">
-            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-tachometer-alt me-2"></i> وضعیت فعلی گلخانه</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="current-status"><i class="fas fa-expand"></i></button>
-            </div>
+    <div class="container">
+        <!-- انتخاب فرمت تاریخ -->
+        <div class="date-format-selector">
+            <label for="date-format">فرمت تاریخ:</label>
+            <select id="date-format" onchange="updateDateFormat()">
+                <option value="gregorian" {% if date_format == 'gregorian' %}selected{% endif %}>میلادی</option>
+                <option value="jalali" {% if date_format == 'jalali' %}selected{% endif %}>شمسی</option>
+            </select>
+        </div>
+
+        <!-- پیام‌های پاپ‌آپ -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="notification">
+            <ul>
+                {% for msg in messages %}
+                <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- وضعیت فعلی -->
+        <section class="card" data-section="current-status">
+            <header class="card-header">
+                <h2><i class="fas fa-tachometer-alt"></i> وضعیت فعلی گلخانه</h2>
+                <button class="fullscreen-btn" data-section="current-status">تمام‌صفحه</button>
+            </header>
             <div class="card-body">
-                {% if latest_data %}
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="summary p-3 text-center {{ 'bg-danger' if alerts.temperature else 'bg-success' }}">
-                            <h3 class="h5"><i class="fas fa-thermometer-half me-2"></i> دما (°C)</h3>
-                            <p class="fs-3">{{ latest_data.temperature|round(2) }}</p>
-                            <p>وضعیت: {{ 'نیاز به بررسی' if alerts.temperature else 'نرمال' }}</p>
+                {% if latest_data and latest_data.temperature is defined and latest_data.temperature is not none %}
+                <div class="status-grid">
+                    <div class="status-item {{ 'status-danger' if alerts.temperature else 'status-success' }}">
+                        <h3><i class="fas fa-thermometer-half"></i> دما (°C)</h3>
+                        <p>{{ latest_data.temperature|round(2) }}</p>
+                        <p>وضعیت: {{ 'نیاز به بررسی' if alerts.temperature else 'نرمال' }}</p>
+                        <p>فاصله از نقطه بحران: {{ latest_data.temp_distance|round(2) if latest_data.temp_distance is defined and latest_data.temp_distance is not none else '0' }} °C</p>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ latest_data.temp_confidence|round(2) if latest_data.temp_confidence is defined and latest_data.temp_confidence is not none else '0' }}%;"></div>
                         </div>
+                        <p>درصد اطمینان: {{ latest_data.temp_confidence|round(2) if latest_data.temp_confidence is defined and latest_data.temp_confidence is not none else '0' }}%</p>
                     </div>
-                    <div class="col-md-4">
-                        <div class="summary p-3 text-center {{ 'bg-danger' if alerts.humidity else 'bg-success' }}">
-                            <h3 class="h5"><i class="fas fa-tint me-2"></i> رطوبت (%)</h3>
-                            <p class="fs-3">{{ latest_data.humidity|round(2) }}</p>
-                            <p>وضعیت: {{ 'نیاز به بررسی' if alerts.humidity else 'نرمال' }}</p>
+                    <div class="status-item {{ 'status-danger' if alerts.humidity else 'status-success' }}">
+                        <h3><i class="fas fa-tint"></i> رطوبت (%)</h3>
+                        <p>{{ latest_data.humidity|round(2) if latest_data.humidity is defined and latest_data.humidity is not none else '0' }}</p>
+                        <p>وضعیت: {{ 'نیاز به بررسی' if alerts.humidity else 'نرمال' }}</p>
+                        <p>فاصله از نقطه بحران: {{ latest_data.hum_distance|round(2) if latest_data.hum_distance is defined and latest_data.hum_distance is not none else '0' }} %</p>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ latest_data.hum_confidence|round(2) if latest_data.hum_confidence is defined and latest_data.hum_confidence is not none else '0' }}%;"></div>
                         </div>
+                        <p>درصد اطمینان: {{ latest_data.hum_confidence|round(2) if latest_data.hum_confidence is defined and latest_data.hum_confidence is not none else '0' }}%</p>
                     </div>
-                    <div class="col-md-4">
-                        <div class="summary p-3 text-center {{ 'bg-danger' if alerts.light else 'bg-success' }}">
-                            <h3 class="h5"><i class="fas fa-lightbulb me-2"></i> نور (Lux)</h3>
-                            <p class="fs-3">{{ latest_data.light|round(2) }}</p>
-                            <p>وضعیت: {{ 'نیاز به بررسی' if alerts.light else 'نرمال' }}</p>
+                    <div class="status-item {{ 'status-danger' if alerts.light else 'status-success' }}">
+                        <h3><i class="fas fa-sun"></i> نور (Lux)</h3>
+                        <p>{{ latest_data.light|round(2) if latest_data.light is defined and latest_data.light is not none else '0' }}</p>
+                        <p>وضعیت: {{ 'نیاز به بررسی' if alerts.light else 'نرمال' }}</p>
+                        <p>فاصله از نقطه بحران: {{ latest_data.light_distance|round(2) if latest_data.light_distance is defined and latest_data.light_distance is not none else '0' }} Lux</p>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ latest_data.light_confidence|round(2) if latest_data.light_confidence is defined and latest_data.light_confidence is not none else '0' }}%;"></div>
                         </div>
+                        <p>درصد اطمینان: {{ latest_data.light_confidence|round(2) if latest_data.light_confidence is defined and latest_data.light_confidence is not none else '0' }}%</p>
                     </div>
                 </div>
                 {% else %}
-                <p class="alert alert-warning">داده‌ای برای نمایش وضعیت فعلی وجود ندارد.</p>
+                <p class="alert">داده‌ای برای نمایش وجود ندارد.</p>
                 {% endif %}
             </div>
-        </div>
+        </section>
+
+        <!-- تحلیل آماری -->
+        <section class="card" data-section="stats">
+            <header class="card-header">
+                <h2><i class="fas fa-chart-bar"></i> تحلیل آماری</h2>
+                <button class="fullscreen-btn" data-section="stats">تمام‌صفحه</button>
+            </header>
+            <div class="card-body">
+                {% if stats and stats.temperature.mean is defined and stats.temperature.mean is not none %}
+                <div class="stats-grid">
+                    <div class="stats-item">
+                        <h3><i class="fas fa-thermometer-half"></i> دما (°C)</h3>
+                        <p>میانگین: {{ stats.temperature.mean|round(2) }}</p>
+                        <p>حداقل: {{ stats.temperature.min|round(2) }}</p>
+                        <p>حداکثر: {{ stats.temperature.max|round(2) }}</p>
+                        <p>میانه: {{ stats.temperature.median|round(2) }}</p>
+                        <p>انحراف معیار: {{ stats.temperature.std|round(2) }}</p>
+                        <p>تعداد داده‌ها: {{ stats.temperature.count }}</p>
+                        <p>دامنه: {{ stats.temperature.range|round(2) }}</p>
+                        <p>خارج از آستانه: {{ stats.temperature.outliers }}</p>
+                    </div>
+                    <div class="stats-item">
+                        <h3><i class="fas fa-tint"></i> رطوبت (%)</h3>
+                        <p>میانگین: {{ stats.humidity.mean|round(2) if stats.humidity.mean is defined and stats.humidity.mean is not none else '0' }}</p>
+                        <p>حداقل: {{ stats.humidity.min|round(2) if stats.humidity.min is defined and stats.humidity.min is not none else '0' }}</p>
+                        <p>حداکثر: {{ stats.humidity.max|round(2) if stats.humidity.max is defined and stats.humidity.max is not none else '0' }}</p>
+                        <p>میانه: {{ stats.humidity.median|round(2) if stats.humidity.median is defined and stats.humidity.median is not none else '0' }}</p>
+                        <p>انحراف معیار: {{ stats.humidity.std|round(2) if stats.humidity.std is defined and stats.humidity.std is not none else '0' }}</p>
+                        <p>تعداد داده‌ها: {{ stats.humidity.count }}</p>
+                        <p>دامنه: {{ stats.humidity.range|round(2) if stats.humidity.range is defined and stats.humidity.range is not none else '0' }}</p>
+                        <p>خارج از آستانه: {{ stats.humidity.outliers }}</p>
+                    </div>
+                    <div class="stats-item">
+                        <h3><i class="fas fa-sun"></i> نور در روز (Lux)</h3>
+                        <p>میانگین: {{ stats.light_day.mean|round(2) if stats.light_day.mean is defined and stats.light_day.mean is not none else '0' }}</p>
+                        <p>حداقل: {{ stats.light_day.min|round(2) if stats.light_day.min is defined and stats.light_day.min is not none else '0' }}</p>
+                        <p>حداکثر: {{ stats.light_day.max|round(2) if stats.light_day.max is defined and stats.light_day.max is not none else '0' }}</p>
+                        <p>میانه: {{ stats.light_day.median|round(2) if stats.light_day.median is defined and stats.light_day.median is not none else '0' }}</p>
+                        <p>انحراف معیار: {{ stats.light_day.std|round(2) if stats.light_day.std is defined and stats.light_day.std is not none else '0' }}</p>
+                        <p>تعداد داده‌ها: {{ stats.light_day.count }}</p>
+                        <p>دامنه: {{ stats.light_day.range|round(2) if stats.light_day.range is defined and stats.light_day.range is not none else '0' }}</p>
+                        <p>خارج از آستانه: {{ stats.light_day.outliers }}</p>
+                    </div>
+                    <div class="stats-item">
+                        <h3><i class="fas fa-moon"></i> نور در شب (Lux)</h3>
+                        <p>میانگین: {{ stats.light_night.mean|round(2) if stats.light_night.mean is defined and stats.light_night.mean is not none else '0' }}</p>
+                        <p>حداقل: {{ stats.light_night.min|round(2) if stats.light_night.min is defined and stats.light_night.min is not none else '0' }}</p>
+                        <p>حداکثر: {{ stats.light_night.max|round(2) if stats.light_night.max is defined and stats.light_night.max is not none else '0' }}</p>
+                        <p>میانه: {{ stats.light_night.median|round(2) if stats.light_night.median is defined and stats.light_night.median is not none else '0' }}</p>
+                        <p>انحراف معیار: {{ stats.light_night.std|round(2) if stats.light_night.std is defined and stats.light_night.std is not none else '0' }}</p>
+                        <p>تعداد داده‌ها: {{ stats.light_night.count }}</p>
+                        <p>دامنه: {{ stats.light_night.range|round(2) if stats.light_night.range is defined and stats.light_night.range is not none else '0' }}</p>
+                        <p>خارج از آستانه: {{ stats.light_night.outliers }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="alert">داده‌ای برای تحلیل وجود ندارد.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- تحلیل عملکرد سنسور -->
+        <section class="card" data-section="sensor-performance">
+            <header class="card-header">
+                <h2><i class="fas fa-cogs"></i> تحلیل عملکرد سنسور</h2>
+                <button class="fullscreen-btn" data-section="sensor-performance">تمام‌صفحه</button>
+            </header>
+            <div class="card-body">
+                {% if sensor_performance and sensor_performance.temperature.valid_count is defined %}
+                <div class="stats-grid">
+                    <div class="stats-item">
+                        <h3><i class="fas fa-thermometer-half"></i> سنسور دما</h3>
+                        <p>داده‌های معتبر: {{ sensor_performance.temperature.valid_count }}</p>
+                        <p>داده‌های خارج از آستانه: {{ sensor_performance.temperature.outliers }}</p>
+                        <p>نرخ خطا: {{ sensor_performance.temperature.error_rate|round(2) if sensor_performance.temperature.error_rate is defined and sensor_performance.temperature.error_rate is not none else '0' }}%</p>
+                    </div>
+                    <div class="stats-item">
+                        <h3><i class="fas fa-tint"></i> سنسور رطوبت</h3>
+                        <p>داده‌های معتبر: {{ sensor_performance.humidity.valid_count }}</p>
+                        <p>داده‌های خارج از آستانه: {{ sensor_performance.humidity.outliers }}</p>
+                        <p>نرخ خطا: {{ sensor_performance.humidity.error_rate|round(2) if sensor_performance.humidity.error_rate is defined and sensor_performance.humidity.error_rate is not none else '0' }}%</p>
+                    </div>
+                    <div class="stats-item">
+                        <h3><i class="fas fa-sun"></i> سنسور نور</h3>
+                        <p>داده‌های معتبر: {{ sensor_performance.light.valid_count }}</p>
+                        <p>داده‌های خارج از آستانه: {{ sensor_performance.light.outliers }}</p>
+                        <p>نرخ خطا: {{ sensor_performance.light.error_rate|round(2) if sensor_performance.light.error_rate is defined and sensor_performance.light.error_rate is not none else '0' }}%</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="alert">داده‌ای برای تحلیل عملکرد سنسور وجود ندارد.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- نمودارها -->
+        <section class="card" data-section="charts">
+            <header class="card-header">
+                <h2><i class="fas fa-chart-line"></i> نمودارهای داده</h2>
+                <button class="fullscreen-btn" data-section="charts">تمام‌صفحه</button>
+            </header>
+            <div class="card-body">
+                {% if stats and stats.temperature.mean is defined and stats.temperature.mean is not none %}
+                <div class="chart-grid">
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار دما</h3>
+                            <button class="fullscreen-btn" data-chart="temperature">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/temperature_plot_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار رطوبت</h3>
+                            <button class="fullscreen-btn" data-chart="humidity">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/humidity_plot_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار نور</h3>
+                            <button class="fullscreen-btn" data-chart="light">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/light_plot_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار ترکیبی (دما، رطوبت، نور)</h3>
+                            <button class="fullscreen-btn" data-chart="combined_all">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/combined_plot_all_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار ترکیبی (دما، رطوبت)</h3>
+                            <button class="fullscreen-btn" data-chart="combined_temp_hum">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/combined_plot_temp-hum_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار ترکیبی (دما، نور)</h3>
+                            <button class="fullscreen-btn" data-chart="combined_temp_light">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/combined_plot_temp-light_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                    <div class="chart">
+                        <div class="chart-header">
+                            <h3>نمودار ترکیبی (رطوبت، نور)</h3>
+                            <button class="fullscreen-btn" data-chart="combined_hum_light">تمام‌صفحه</button>
+                        </div>
+                        <iframe src="/static/report/combined_plot_hum-light_hourly.html" width="100%" height="400px" frameborder="0"></iframe>
+                    </div>
+                </div>
+                {% else %}
+                <p class="alert">نموداری برای نمایش وجود ندارد.</p>
+                {% endif %}
+            </div>
+        </section>
 
         <!-- فرم تنظیم آستانه‌ها -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="thresholds">
-            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-cog me-2"></i> تنظیم آستانه‌های استاندارد</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="thresholds"><i class="fas fa-expand"></i></button>
-            </div>
+        <section class="card" data-section="thresholds">
+            <header class="card-header">
+                <h2><i class="fas fa-sliders-h"></i> تنظیم آستانه‌ها</h2>
+                <button class="fullscreen-btn" data-section="thresholds">تمام‌صفحه</button>
+            </header>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('update_thresholds') }}" class="row g-3">
-                    <div class="col-md-4">
-                        <h5>دما (°C)</h5>
-                        <div class="input-group">
-                            <span class="input-group-text">حداقل</span>
-                            <input type="number" name="temp_min" class="form-control" value="{{ thresholds.temperature.min }}" step="0.1">
-                        </div>
-                        <div class="input-group mt-2">
-                            <span class="input-group-text">حداکثر</span>
-                            <input type="number" name="temp_max" class="form-control" value="{{ thresholds.temperature.max }}" step="0.1">
-                        </div>
+                <form method="POST" action="{{ url_for('update_thresholds') }}" class="form-grid">
+                    <div>
+                        <h3><i class="fas fa-thermometer-half"></i> دما (°C)</h3>
+                        <label>حداقل</label>
+                        <input type="number" name="temp_min" value="{{ thresholds.temperature.min }}" step="0.1" min="0" max="50" required>
+                        <label>حداکثر</label>
+                        <input type="number" name="temp_max" value="{{ thresholds.temperature.max }}" step="0.1" min="0" max="50" required>
                     </div>
-                    <div class="col-md-4">
-                        <h5>رطوبت (%)</h5>
-                        <div class="input-group">
-                            <span class="input-group-text">حداقل</span>
-                            <input type="number" name="hum_min" class="form-control" value="{{ thresholds.humidity.min }}" step="0.1">
-                        </div>
-                        <div class="input-group mt-2">
-                            <span class="input-group-text">حداکثر</span>
-                            <input type="number" name="hum_max" class="form-control" value="{{ thresholds.humidity.max }}" step="0.1">
-                        </div>
+                    <div>
+                        <h3><i class="fas fa-tint"></i> رطوبت (%)</h3>
+                        <label>حداقل</label>
+                        <input type="number" name="hum_min" value="{{ thresholds.humidity.min }}" step="0.1" min="0" max="100" required>
+                        <label>حداکثر</label>
+                        <input type="number" name="hum_max" value="{{ thresholds.humidity.max }}" step="0.1" min="0" max="100" required>
                     </div>
-                    <div class="col-md-4">
-                        <h5>نور (Lux)</h5>
-                        <div class="input-group">
-                            <span class="input-group-text">حداقل</span>
-                            <input type="number" name="light_min" class="form-control" value="{{ thresholds.light.min }}" step="1">
-                        </div>
-                        <div class="input-group mt-2">
-                            <span class="input-group-text">حداکثر</span>
-                            <input type="number" name="light_max" class="form-control" value="{{ thresholds.light.max }}" step="1">
-                        </div>
+                    <div>
+                        <h3><i class="fas fa-sun"></i> نور (Lux)</h3>
+                        <label>حداقل</label>
+                        <input type="number" name="light_min" value="{{ thresholds.light.min }}" step="1" min="0" max="100000" required>
+                        <label>حداکثر</label>
+                        <input type="number" name="light_max" value="{{ thresholds.light.max }}" step="1" min="0" max="100000" required>
                     </div>
-                    <div class="col-md-12 mt-3">
-                        <button type="submit" class="btn btn-success w-100">ذخیره آستانه‌ها</button>
-                    </div>
+                    <button type="submit" class="btn">ذخیره</button>
                 </form>
             </div>
-        </div>
+        </section>
 
-        <!-- فرم فیلتر زمانی و تجمیع -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="filters">
-            <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-filter me-2"></i> فیلتر و تنظیمات</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="filters"><i class="fas fa-expand"></i></button>
-            </div>
+        <!-- جدول داده‌ها -->
+        <section class="card" data-section="data-table">
+            <header class="card-header">
+                <h2><i class="fas fa-table"></i> جدول داده‌ها</h2>
+                <button class="fullscreen-btn" data-section="data-table">تمام‌صفحه</button>
+            </header>
             <div class="card-body">
-                <form method="GET" action="{{ url_for('index') }}" class="row g-3" onsubmit="showLoading()">
-                    <div class="col-md-3">
-                        <label class="form-label">از تاریخ</label>
-                        <input type="text" name="start_date" class="form-control" value="{{ start_date or '' }}" placeholder="{{ 'YYYY/MM/DD' if date_format == 'jalali' else 'YYYY-MM-DD' }}">
+                <!-- فرم فیلتر جدول -->
+                <form method="GET" action="{{ url_for('index') }}" class="form-grid filter-form">
+                    <div>
+                        <label>بازه زمانی (از)</label>
+                        <input type="text" name="table_start_date" value="{{ table_start_date }}" placeholder="{% if date_format == 'jalali' %}YYYY/MM/DD{% else %}YYYY-MM-DD{% endif %}" required>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">تا تاریخ</label>
-                        <input type="text" name="end_date" class="form-control" value="{{ end_date or '' }}" placeholder="{{ 'YYYY/MM/DD' if date_format == 'jalali' else 'YYYY-MM-DD' }}">
+                    <div>
+                        <label>بازه زمانی (تا)</label>
+                        <input type="text" name="table_end_date" value="{{ table_end_date }}" placeholder="{% if date_format == 'jalali' %}YYYY/MM/DD{% else %}YYYY-MM-DD{% endif %}" required>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">بازه تجمیعی</label>
-                        <select name="aggregation" class="form-control">
-                            <option value="hourly" {% if aggregation == 'hourly' %}selected{% endif %}>ساعتی</option>
-                            <option value="daily" {% if aggregation == 'daily' %}selected{% endif %}>روزانه</option>
-                            <option value="weekly" {% if aggregation == 'weekly' %}selected{% endif %}>هفتگی</option>
-                        </select>
+                    <div>
+                        <label>دما (°C) - حداقل</label>
+                        <input type="number" name="temp_min_filter" value="{{ temp_min_filter }}" step="0.1">
+                        <label>دما (°C) - حداکثر</label>
+                        <input type="number" name="temp_max_filter" value="{{ temp_max_filter }}" step="0.1">
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">نمودار ترکیبی</label>
-                        <select name="combination" class="form-control">
-                            <option value="all" {% if combination == 'all' %}selected{% endif %}>دما، رطوبت، نور</option>
-                            <option value="temp-hum" {% if combination == 'temp-hum' %}selected{% endif %}>دما و رطوبت</option>
-                            <option value="temp-light" {% if combination == 'temp-light' %}selected{% endif %}>دما و نور</option>
-                            <option value="hum-light" {% if combination == 'hum-light' %}selected{% endif %}>رطوبت و نور</option>
-                        </select>
+                    <div>
+                        <label>رطوبت (%) - حداقل</label>
+                        <input type="number" name="hum_min_filter" value="{{ hum_min_filter }}" step="0.1">
+                        <label>رطوبت (%) - حداکثر</label>
+                        <input type="number" name="hum_max_filter" value="{{ hum_max_filter }}" step="0.1">
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">فرمت تاریخ</label>
-                        <select name="date_format" class="form-control">
-                            <option value="gregorian" {% if date_format == 'gregorian' %}selected{% endif %}>میلادی</option>
-                            <option value="jalali" {% if date_format == 'jalali' %}selected{% endif %}>شمسی</option>
-                        </select>
+                    <div>
+                        <label>نور (Lux) - حداقل</label>
+                        <input type="number" name="light_min_filter" value="{{ light_min_filter }}" step="1">
+                        <label>نور (Lux) - حداکثر</label>
+                        <input type="number" name="light_max_filter" value="{{ light_max_filter }}" step="1">
                     </div>
-                    <div class="col-md-2 align-self-end">
-                        <button type="submit" class="btn btn-primary w-100">فیلتر</button>
-                    </div>
+                    <button type="submit" class="btn">فیلتر</button>
+                    <input type="hidden" name="date_format" value="{{ date_format }}">
                 </form>
-            </div>
-        </div>
 
-        <!-- جدول تعاملی -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="data-table">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-table me-2"></i> جدول داده‌ها</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="data-table"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
                 {% if table_rows %}
-                <div class="table-responsive">
-                    <table id="dataTable" class="table table-striped table-bordered w-100">
+                <div class="table-container">
+                    <table id="dataTable">
                         <thead>
                             <tr>
-                                <th>زمان</th>
-                                <th>دما (°C)</th>
-                                <th>رطوبت (%)</th>
-                                <th>نور (Lux)</th>
+                                <th data-sort="datetime">زمان</th>
+                                <th data-sort="temperature">دما (°C)</th>
+                                <th data-sort="humidity">رطوبت (%)</th>
+                                <th data-sort="light">نور (Lux)</th>
                                 <th>وضعیت</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in table_rows %}
-                            <tr class="{% if loop.index % 10 == 0 %}table-row-alternate{% endif %}">
+                            <tr>
                                 <td>{{ row.datetime }}</td>
-                                <td class="status-{{ row.status.temperature }}">{{ row.temperature|round(2) }}</td>
-                                <td class="status-{{ row.status.humidity }}">{{ row.humidity|round(2) }}</td>
-                                <td class="status-{{ row.status.light }}">{{ row.light|round(2) }}</td>
+                                <td class="status-{{ row.status.temperature }}">{{ row.temperature|round(2) if row.temperature is defined and row.temperature is not none else '0' }}</td>
+                                <td class="status-{{ row.status.humidity }}">{{ row.humidity|round(2) if row.humidity is defined and row.humidity is not none else '0' }}</td>
+                                <td class="status-{{ row.status.light }}">{{ row.light|round(2) if row.light is defined and row.light is not none else '0' }}</td>
                                 <td>
                                     {% if row.status.temperature == 'danger' or row.status.humidity == 'danger' or row.status.light == 'danger' %}
-                                        <span class="badge bg-danger">نیاز به بررسی</span>
+                                        <span class="badge danger">نیاز به بررسی</span>
                                     {% elif row.status.temperature == 'warning' or row.status.humidity == 'warning' or row.status.light == 'warning' %}
-                                        <span class="badge bg-warning">هشدار</span>
+                                        <span class="badge warning">هشدار</span>
                                     {% else %}
-                                        <span class="badge bg-success">نرمال</span>
+                                        <span class="badge success">نرمال</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -196,165 +349,12 @@
                     </table>
                 </div>
                 {% else %}
-                <p class="alert alert-warning">داده‌ای برای نمایش وجود ندارد.</p>
+                <p class="alert">داده‌ای برای نمایش وجود ندارد.</p>
                 {% endif %}
             </div>
-        </div>
-
-        <!-- تحلیل آماری -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="stats">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-chart-bar me-2"></i> تحلیل آماری</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="stats"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
-                {% if stats %}
-                <div class="row g-3">
-                    {% for key, value in stats.items() %}
-                    <div class="col-md-4">
-                        <div class="summary p-3">
-                            <h3 class="h5">{{ {'temperature': 'دما (°C)', 'humidity': 'رطوبت (%)', 'light': 'نور (Lux)'}[key] }}</h3>
-                            <p>میانگین: {{ value.mean|round(2) }}</p>
-                            <p>حداقل: {{ value.min|round(2) }}</p>
-                            <p>حداکثر: {{ value.max|round(2) }}</p>
-                            <p>میانه: {{ value.median|round(2) }}</p>
-                            <p>دامنه: {{ value.range|round(2) }}</p>
-                            <p>تعداد رکوردها: {{ value.count|int }}</p>
-                            {% if key in thresholds and value.mean|float < thresholds[key].min %}
-                            <p class="text-danger">هشدار: میانگین کمتر از حد استاندارد ({{ thresholds[key].min }})</p>
-                            {% elif key in thresholds and value.mean|float > thresholds[key].max %}
-                            <p class="text-danger">هشدار: میانگین بیشتر از حد استاندارد ({{ thresholds[key].max }})</p>
-                            {% elif key in thresholds %}
-                            <p class="text-success">میانگین در محدوده استاندارد</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="alert alert-warning">داده‌ای برای نمایش آمار وجود ندارد.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- تحلیل عملکرد سنسورها -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="sensor-issues">
-            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-exclamation-triangle me-2"></i> تحلیل عملکرد سنسورها</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="sensor-issues"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
-                {% if sensor_issues %}
-                <ul class="list-group">
-                    {% if sensor_issues.outliers %}
-                    <li class="list-group-item list-group-item-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i> هشدار: {{ sensor_issues.outliers }} مورد داده نور خارج از محدوده (>{{ thresholds.light.max }} یا <{{ thresholds.light.min }}) شناسایی شد.
-                    </li>
-                    {% else %}
-                    <li class="list-group-item list-group-item-success">
-                        <i class="fas fa-check-circle me-2"></i> هیچ مشکلی در عملکرد سنسورهای نور شناسایی نشد.
-                    </li>
-                    {% endif %}
-                </ul>
-                {% else %}
-                <p class="alert alert-warning">داده‌ای برای تحلیل عملکرد سنسورها وجود ندارد.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- نمودارها -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="charts">
-            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-chart-line me-2"></i> نمودارهای پویا</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="charts"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    {% if charts_available.temperature %}
-                    <div class="col-12 chart-container fullscreen-section" data-section="temperature-chart">
-                        <h3 class="h5 text-center">دما (°C)</h3>
-                        <iframe src="{{ url_for('static', filename='report/temperature_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
-                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
-                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="temperature-chart"><i class="fas fa-expand"></i></button>
-                    </div>
-                    {% endif %}
-                    {% if charts_available.humidity %}
-                    <div class="col-12 chart-container fullscreen-section" data-section="humidity-chart">
-                        <h3 class="h5 text-center">رطوبت (%)</h3>
-                        <iframe src="{{ url_for('static', filename='report/humidity_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
-                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
-                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="humidity-chart"><i class="fas fa-expand"></i></button>
-                    </div>
-                    {% endif %}
-                    {% if charts_available.light %}
-                    <div class="col-12 chart-container fullscreen-section" data-section="light-chart">
-                        <h3 class="h5 text-center">نور (Lux)</h3>
-                        <iframe src="{{ url_for('static', filename='report/light_plot_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
-                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
-                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="light-chart"><i class="fas fa-expand"></i></button>
-                    </div>
-                    {% endif %}
-                    {% if charts_available.combined %}
-                    <div class="col-12 chart-container fullscreen-section" data-section="combined-chart">
-                        <h3 class="h5 text-center">نمودار ترکیبی</h3>
-                        <iframe src="{{ url_for('static', filename='report/combined_plot_' + combination + '_' + aggregation + '.html') }}" class="chart-iframe" frameborder="0"></iframe>
-                        <p class="small text-center mt-2">برای مشاهده نمودار کلیک کنید</p>
-                        <button class="btn btn-sm btn-light fullscreen-btn" data-section="combined-chart"><i class="fas fa-expand"></i></button>
-                    </div>
-                    {% endif %}
-                    {% if not (charts_available.temperature or charts_available.humidity or charts_available.light or charts_available.combined) %}
-                    <p class="alert alert-warning">نمودارها در دسترس نیستند. لطفاً داده‌ها را آپلود کنید یا فیلترها را بررسی کنید.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- آپلود فایل -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="upload">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-upload me-2"></i> آپلود فایل CSV</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="upload"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" onsubmit="showLoading()">
-                    <div class="mb-3">
-                        <input type="file" name="file" accept=".csv" class="form-control">
-                    </div>
-                    <button type="submit" class="btn btn-success w-100">بارگذاری و تحلیل</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- دانلود گزارش -->
-        <div class="card mb-4 shadow-sm fullscreen-section" data-section="download">
-            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0"><i class="fas fa-download me-2"></i> دانلود گزارش</h2>
-                <button class="btn btn-sm btn-light fullscreen-btn" data-section="download"><i class="fas fa-expand"></i></button>
-            </div>
-            <div class="card-body">
-                <a href="{{ url_for('download_summary') }}" class="btn btn-primary w-100">دانلود گزارش متنی</a>
-            </div>
-        </div>
-
-        <!-- پیام‌ها -->
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-        <div class="alert alert-info">
-            <ul class="mb-0">
-                {% for msg in messages %}
-                <li>{{ msg }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        {% endwith %}
+        </section>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-    <script src="{{ url_for('static', filename='chart.js') }}"></script>
+    <script src="/static/chart.js"></script>
 </body>
 </html>

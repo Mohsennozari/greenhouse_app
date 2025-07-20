@@ -1,181 +1,402 @@
+/* متغیرهای اصلی برای رنگ‌ها و افکت‌ها */
+:root {
+    --primary-color: #1e3a8a; /* آبی تیره برای گرادیان‌ها */
+    --accent-color: #1e90ff; /* آبی روشن برای حاشیه‌ها و دکمه‌ها */
+    --success-color: #34d399; /* سبز برای وضعیت نرمال */
+    --danger-color: #f87171; /* قرمز برای وضعیت خطر */
+    --warning-color: #ffd700; /* زرد برای وضعیت هشدار */
+    --bg-color: #ffffff; /* پس‌زمینه سفید */
+    --card-bg: rgba(255, 255, 255, 0.1); /* پس‌زمینه شیشه‌ای */
+    --text-color: #1f2937; /* رنگ متن */
+    --blur-effect: blur(8px);
+    --border-radius: 40px;
+    --transition: all 0.3s ease;
+}
+
+/* تنظیمات عمومی */
+* {
+    font-family: 'Vazir', 'Poppins', Arial, sans-serif;
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Vazir, Arial, sans-serif;
     direction: rtl;
-    background-color: #f1f3f5;
+    background: var(--bg-color);
     margin: 0;
-    padding: 12px;
+    padding: 20px;
+    color: var(--text-color);
+    font-size: 16px;
 }
 
-.monitoring-dashboard {
-    max-width: 100%;
-    padding: 12px;
+/* کانتینر اصلی */
+.container {
+    max-width: 1800px;
+    margin: 0 auto;
 }
 
+/* انتخابگر فرمت تاریخ */
+.date-format-selector {
+    margin-bottom: 20px;
+    text-align: center;
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    border: 2px solid #000000;
+}
+
+.date-format-selector label {
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.date-format-selector select {
+    padding: 10px;
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.date-format-selector select:focus {
+    border-color: var(--warning-color);
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+
+/* کارت‌ها و هدر کارت */
 .card {
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-    transition: transform 0.2s, box-shadow 0.2s;
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid #000000;
+    border-radius: var(--border-radius);
+    margin: 10px 10px 20px;
+    transition: var(--transition);
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-8px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
 .card-header {
-    border-radius: 4px 4px 0 0;
-    padding: 10px 14px;
-    font-weight: 700;
-    font-size: 1.2rem;
-    background-color: #2c3e50;
-    color: #ffffff;
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 1px solid #000000;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    color: var(--text-color);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.card-header.bg-primary {
-    background-color: #1e90ff;
-}
-
-.card-header.bg-success {
-    background-color: #28a745;
-}
-
-.card-header.bg-warning {
-    background-color: #ffc107;
-    color: #212529;
-}
-
-.card-header.bg-info {
-    background-color: #17a2b8;
-}
-
-.card-header.bg-secondary {
-    background-color: #6c757d;
+.card-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .card-body {
-    padding: 12px;
+    padding: 20px;
 }
 
-.summary {
-    border-radius: 4px;
-    padding: 12px;
-    font-size: 1.1rem;
-    border: 1px solid #ced4da;
+/* شبکه‌های وضعیت، آمار و فرم‌ها */
+.status-grid, .stats-grid, .filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+/* کارت‌های وضعیت */
+.status-item {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid var(--accent-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    text-align: center;
+    transition: var(--transition);
+}
+
+.status-item:hover, .stats-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.status-item.status-success {
+    border: 4px solid var(--success-color);
+}
+
+.status-item.status-danger {
+    border: 4px solid var(--danger-color);
+}
+
+.status-item.status-warning {
+    border: 4px solid var(--warning-color);
+}
+
+/* کارت‌های آمار */
+.stats-item {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 4px solid var(--warning-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
     justify-content: center;
+    align-items: center;
 }
 
-.summary.bg-success {
-    background-color: #d4edda;
-    color: #ffffff;
-}
-
-.summary.bg-danger {
-    background-color: #f8d7da;
-    color: #ffffff;
-}
-
-.summary p {
-    font-size: 1.4rem;
-    font-weight: 600;
-    margin: 2px 0;
-}
-
-.table-responsive {
-    max-height: 35vh;
-    overflow-y: auto;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #1e90ff #f1f3f5;
-}
-
-.table-responsive::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f3f5;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #1e90ff;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #007bff;
-}
-
-table.dataTable {
-    border-collapse: collapse !important;
-    font-size: 1.1rem;
-    width: 100% !important;
-}
-
-table.dataTable thead th {
-    background-color: #2c3e50;
-    color: #ffffff;
-    padding: 10px;
-    text-align: center;
+.stats-item h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 1.2rem;
-    font-weight: 700;
+    margin-bottom: 15px;
+    background: var(--card-bg);
+    border: 3px solid var(--accent-color);
+    border-radius: 14px;
+    padding: 3px;
 }
 
-table.dataTable tbody tr:hover {
-    background-color: #e9ecef;
+.stats-item p {
+    margin: 8px 0;
+    font-size: 0.95rem;
 }
 
-table.dataTable tbody td {
+/* نوار پیشرفت */
+.progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid var(--accent-color);
+    border-radius: 10px;
+    height: 12px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.progress {
+    background: var(--accent-color);
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+/* نمودارها */
+.chart-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chart {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid #000000;
+    border-radius: var(--border-radius);
     padding: 10px;
-    font-size: 1.1rem;
+    transition: var(--transition);
 }
 
-.status-success { background-color: #d4edda; color: #155724; }
-.status-warning { background-color: #fff3cd; color: #856404; }
-.status-danger { background-color: #f8d7da; color: #721c24; }
+.chart:hover {
+    transform: translateY(-5px);
+}
 
-.chart-iframe {
-    width: 100%;
-    height: 30vh;
-    border: none;
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.chart-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+/* فرم‌ها */
+.form-grid, .filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.form-grid label, .filter-form label {
     display: block;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    margin-bottom: 8px;
+    font-weight: bold;
 }
 
-.chart-container {
-    position: relative;
-    margin-bottom: 12px;
-}
-
-.chart-container p {
-    margin: 6px 0;
-    color: #495057;
+.form-grid input, .filter-form input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
     font-size: 1rem;
+    transition: var(--transition);
+}
+
+.form-grid input:focus, .filter-form input:focus {
+    border-color: var(--warning-color);
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+
+/* دکمه‌ها */
+.btn {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 4px solid var(--warning-color);
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    padding: 12px;
+    margin: 12px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: var(--transition);
+}
+
+.btn:hover {
+    transform: scale(1.05);
+    border-color: var(--accent-color);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* جدول */
+.table-container {
+    max-height: 500px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) var(--bg-color);
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid #000000;
+    border-radius: var(--border-radius);
+}
+
+.table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px;
+    border: 1px solid var(--accent-color);
     text-align: center;
 }
 
-.fullscreen-btn {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    padding: 6px 10px;
-    font-size: 0.9rem;
-    z-index: 10;
-    background-color: #ffffff;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+th {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid #000000;
+    color: var(--text-color);
+    cursor: pointer;
 }
 
-.fullscreen-btn:hover {
-    background-color: #e9ecef;
+th:hover {
+    border-color: var(--warning-color);
 }
 
+tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* وضعیت‌های جدول */
+.status-success {
+    border: 2px solid var(--success-color);
+}
+
+.status-warning {
+    border: 2px solid var(--warning-color);
+}
+
+.status-danger {
+    border: 2px solid var(--danger-color);
+}
+
+/* نشان‌ها */
+.badge {
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+}
+
+.badge.success {
+    border: 2px solid var(--success-color);
+    color: var(--text-color);
+}
+
+.badge.warning {
+    border: 2px solid var(--warning-color);
+    color: var(--text-color);
+}
+
+.badge.danger {
+    border: 2px solid var(--danger-color);
+    color: var(--text-color);
+}
+
+/* هشدارها */
+.alert {
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid var(--danger-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+}
+
+.alert ul {
+    margin: 0;
+    padding-right: 20px;
+}
+
+/* اعلان‌ها */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--card-bg);
+    backdrop-filter: var(--blur-effect);
+    border: 2px solid #000000;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.5s ease-out;
+}
+
+.notification.hide {
+    opacity: 0;
+}
+
+.notification ul {
+    margin: 0;
+    padding-right: 20px;
+}
+
+/* لودینگ */
 .loading-overlay {
     display: none;
     position: fixed;
@@ -183,110 +404,70 @@ table.dataTable tbody td {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 9999;
-    justify-content: center;
-    align-items: center;
+    background: rgba(99, 99, 99, 0.448);
+    display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
 }
 
-.loading-overlay .spinner-border {
-    width: 3rem;
-    height: 3rem;
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-top: 5px solid var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
-.fullscreen-section {
-    position: relative;
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-.fullscreen-section.fullscreen {
+/* دکمه تمام‌صفحه */
+.fullscreen-btn {
+    background: var(--card-bg);
+    border: 3px solid var(--accent-color);
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.fullscreen-btn:hover {
+    transform: scale(1.05);
+    border-color: var(--warning-color);
+}
+
+/* حالت تمام‌صفحه */
+.card.fullscreen, .chart.fullscreen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
     z-index: 1000;
-    background: #ffffff;
+    background: rgb(255, 255, 255);
+    backdrop-filter: var(--blur-effect);
     margin: 0;
-    padding: 15px;
-    overflow: auto;
-}
-
-.fullscreen-section.fullscreen .card {
-    height: 100%;
+    padding: 20px;
     border-radius: 0;
-    border: none;
+    border: 2px solid #000000;
 }
 
-.fullscreen-section.fullscreen .card-body {
-    max-height: 100%;
-    overflow-y: auto;
-    padding: 20px;
+.chart.fullscreen iframe {
+    height: 90vh;
 }
 
-.fullscreen-section.fullscreen .chart-iframe {
-    height: 95vh;
-}
-
-.fullscreen-section.fullscreen .table-responsive {
-    max-height: 90vh;
-}
-
-.fullscreen-section.fullscreen .summary {
-    font-size: 1.4rem;
-    padding: 20px;
-}
-
-.fullscreen-section.fullscreen .summary p {
-    font-size: 2rem;
-}
-
-.fullscreen-section.fullscreen .form-control, .fullscreen-section.fullscreen .btn {
-    font-size: 1.3rem;
-}
-
-.fullscreen-section.fullscreen table.dataTable {
-    font-size: 1.3rem;
-}
-
-.fullscreen-section.fullscreen table.dataTable thead th {
-    font-size: 1.4rem;
-}
-
+/* رسپانسیو */
 @media (max-width: 768px) {
-    .chart-iframe {
-        height: 25vh;
-    }
-
-    .table-responsive {
-        max-height: 30vh;
-    }
-
-    .card-header {
-        font-size: 1.1rem;
-    }
-
-    .summary {
-        font-size: 1rem;
-    }
-
-    .summary p {
-        font-size: 1.2rem;
-    }
-
-    .form-control, .btn {
-        font-size: 0.9rem;
-    }
-
-    table.dataTable {
-        font-size: 1rem;
-    }
-
-    table.dataTable thead th {
-        font-size: 1.1rem;
-    }
-
-    .chart-container p {
-        font-size: 0.9rem;
-    }
+    .card-header h2 { font-size: 1.3rem; }
+    .status-item, .stats-item { font-size: 0.9rem; }
+    .form-grid input, .filter-form input { font-size: 0.9rem; }
+    .btn { font-size: 1rem; }
+    th, td { font-size: 0.9rem; }
+    .chart-grid { flex-direction: column; }
 }

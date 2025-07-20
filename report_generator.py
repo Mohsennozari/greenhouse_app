@@ -41,28 +41,34 @@ def generate_summary(df, metrics, static_report_folder, date_format='gregorian')
             f.write(f"دامنه: {stats['range']:.2f}\n")
             f.write(f"تعداد رکوردها: {stats['count']:.0f}\n")
             f.write(f"انحراف معیار: {stats['std']:.2f}\n")
-            outliers = df[(df[col] < THRESHOLDS[col]['min']) | (df[col] > THRESHOLDS[col]['max'])][col].count()
-            f.write(f"تعداد نقاط خارج از آستانه: {outliers}\n")
-            if col == 'temperature' and stats['mean'] < THRESHOLDS['temperature']['min']:
-                f.write("توصیه: دمای پایین! سیستم گرمایش را بررسی کنید.\n")
-            elif col == 'temperature' and stats['mean'] > THRESHOLDS['temperature']['max']:
-                f.write("توصیه: دمای بالا! تهویه را تقویت کنید.\n")
+            f.write(f"تعداد نقاط خارج از آستانه: {df[(df[col] < THRESHOLDS[col]['min']) | (df[col] > THRESHOLDS[col]['max'])][col].count()}\n")
             f.write("\n")
 
 def generate_single_plot(df, col, info, aggregation, static_report_folder, date_format='gregorian'):
     fig = go.Figure()
-    x_data = df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M') if date_format == 'jalali' else x)
-    fig.add_trace(go.Scatter(x=x_data, y=df[col], mode='lines', name=info['label'], line=dict(color=info['color'], width=2)))
+    x_data = df['datetime'] if date_format == 'gregorian' else df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M'))
+    y_data = df[col]
+    
+    if col == 'light':
+        # معکوس کردن مقادیر نور برای نمایش صحیح
+        df['hour'] = df['datetime'].dt.hour
+        day_mask = (df['hour'] >= 6) & (df['hour'] < 18)
+        night_mask = (df['hour'] < 6) | (df['hour'] >= 18)
+        y_data = df[col].copy()
+        y_data[day_mask] = df.loc[night_mask, col].reindex(y_data.index, fill_value=df[col].mean())[:len(day_mask)]
+        y_data[night_mask] = df.loc[day_mask, col].reindex(y_data.index, fill_value=df[col].mean())[:len(night_mask)]
+    
+    fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines', name=info['label'], line=dict(color=info['color'], width=2)))
     
     outliers = df[(df[col] < THRESHOLDS[col]['min']) | (df[col] > THRESHOLDS[col]['max'])]
     if not outliers.empty:
-        x_data_outliers = outliers['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M') if date_format == 'jalali' else x)
+        x_data_outliers = outliers['datetime'] if date_format == 'gregorian' else outliers['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M'))
         fig.add_trace(go.Scatter(x=x_data_outliers, y=outliers[col], mode='markers', name='نقاط خارج از آستانه', marker=dict(color='red', size=8, symbol='x')))
     
     max_point = df[df[col] == df[col].max()]
     min_point = df[df[col] == df[col].min()]
-    x_max = max_point['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M') if date_format == 'jalali' else x)
-    x_min = min_point['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M') if date_format == 'jalali' else x)
+    x_max = max_point['datetime'] if date_format == 'gregorian' else max_point['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M'))
+    x_min = min_point['datetime'] if date_format == 'gregorian' else min_point['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M'))
     fig.add_trace(go.Scatter(x=x_max, y=max_point[col], mode='markers+text', name='ماکسیمم', marker=dict(color='gold', size=10, symbol='star'), text=[f"Max: {max_point[col].iloc[0]:.2f}"], textposition="top center"))
     fig.add_trace(go.Scatter(x=x_min, y=min_point[col], mode='markers+text', name='مینیمم', marker=dict(color='purple', size=10, symbol='star'), text=[f"Min: {min_point[col].iloc[0]:.2f}"], textposition="bottom center"))
     
@@ -75,9 +81,16 @@ def generate_single_plot(df, col, info, aggregation, static_report_folder, date_
         xaxis_title='زمان',
         yaxis_title=info['label'],
         yaxis=dict(range=info['range'], dtick=info['tick'], gridcolor='#dee2e6', gridwidth=2),
-        xaxis=dict(tickformat='%Y/%m/%d %H:%M' if date_format == 'gregorian' else '%Y/%m/%d', tickangle=45, tickfont=dict(size=14), gridcolor='#dee2e6', gridwidth=2),
+        xaxis=dict(
+            tickformat='%Y/%m/%d %H:%M' if date_format == 'gregorian' else '%Y/%m/%d',
+            tickangle=45,
+            tickfont=dict(size=14),
+            gridcolor='#dee2e6',
+            gridwidth=2,
+            type='date' if date_format == 'gregorian' else 'category'
+        ),
         template='plotly_white',
-        font=dict(family="Vazir, sans-serif", size=16, color='#333'),
+        font=dict(family="Arial, sans-serif", size=16, color='#333'),
         hovermode='x unified',
         showlegend=True,
         xaxis_rangeslider_visible=True
@@ -88,8 +101,16 @@ def generate_combined_plot(df, selected_metrics, metrics, aggregation, combinati
     fig_combined = go.Figure()
     for i, col in enumerate(selected_metrics):
         info = metrics[col]
-        x_data = df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M') if date_format == 'jalali' else x)
-        fig_combined.add_trace(go.Scatter(x=x_data, y=df[col], mode='lines', name=info['label'], line=dict(color=info['color'], width=2), yaxis=f'y{i+1}'))
+        x_data = df['datetime'] if date_format == 'gregorian' else df['datetime'].apply(lambda x: jdatetime.datetime.fromgregorian(datetime=x).strftime('%Y/%m/%d %H:%M'))
+        y_data = df[col]
+        if col == 'light':
+            df['hour'] = df['datetime'].dt.hour
+            day_mask = (df['hour'] >= 6) & (df['hour'] < 18)
+            night_mask = (df['hour'] < 6) | (df['hour'] >= 18)
+            y_data = df[col].copy()
+            y_data[day_mask] = df.loc[night_mask, col].reindex(y_data.index, fill_value=df[col].mean())[:len(day_mask)]
+            y_data[night_mask] = df.loc[day_mask, col].reindex(y_data.index, fill_value=df[col].mean())[:len(night_mask)]
+        fig_combined.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines', name=info['label'], line=dict(color=info['color'], width=2), yaxis=f'y{i+1}'))
     
     layout = {
         'title': f'نمودار ترکیبی {", ".join([metrics[col]["label"] for col in selected_metrics])} ({aggregation})',
@@ -101,10 +122,10 @@ def generate_combined_plot(df, selected_metrics, metrics, aggregation, combinati
             gridcolor='#dee2e6',
             gridwidth=2,
             rangeslider=dict(visible=True),
-            type='date'
+            type='date' if date_format == 'gregorian' else 'category'
         ),
         'template': 'plotly_white',
-        'font': dict(family="Vazir, sans-serif", size=16, color='#333'),
+        'font': dict(family="Arial, sans-serif", size=16, color='#333'),
         'hovermode': 'x unified',
         'showlegend': True
     }
@@ -125,7 +146,7 @@ def generate_combined_plot(df, selected_metrics, metrics, aggregation, combinati
     fig_combined.update_layout(**layout)
     fig_combined.write_html(os.path.join(static_report_folder, f'combined_plot_{combination}_{aggregation}.html'))
 
-def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', combination='all', date_format='gregorian'):
+def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', date_format='gregorian'):
     static_report_folder = os.path.join('static', 'report')
     os.makedirs(static_report_folder, exist_ok=True)
     data_path = os.path.join(DATA_FOLDER, data_path)
@@ -158,11 +179,8 @@ def generate_report(data_path='greenhouse_clean.csv', aggregation='hourly', comb
         'temp-light': ['temperature', 'light'],
         'hum-light': ['humidity', 'light']
     }
-    selected_metrics = combinations.get(combination, ['temperature', 'humidity', 'light'])
-    generate_combined_plot(df, selected_metrics, metrics, aggregation, combination, static_report_folder, date_format)
+    for combination, selected_metrics in combinations.items():
+        generate_combined_plot(df, selected_metrics, metrics, aggregation, combination, static_report_folder, date_format)
     
     print(f"✅ گزارش و نمودارها در پوشه {static_report_folder} ذخیره شد.")
     return True
-
-if __name__ == '__main__':
-    generate_report()
